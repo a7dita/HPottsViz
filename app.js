@@ -4,7 +4,7 @@ const $=id=>document.getElementById(id);
 const configs=Object.fromEntries(Object.entries(MODELS).map(([k,m])=>[k,{...m.defaults}]));
 let model='minimal',worker=null,running=false,paused=false,reversing=false,samples=[],q=null,run=null,plotScale=null,renderQueued=false,started=0;
 const iconPaths={minimal:'M4 19 Q9 3 14 15 T26 12',equilibrium:'M3 18 l4 -9 4 13 4 -16 4 12 4 -6 4 5',conservative:'M3 15 C7 1 12 1 16 15 S25 29 29 15',hidden:'M3 8 Q10 8 15 17 T29 20 M3 23 Q10 23 15 13 T29 8'};
-const interpretation={minimal:'Adaptive dynamics are out of equilibrium: the displayed activity free energy F₀ is not a Lyapunov function for the coupled (r, θ) flow.',equilibrium:'The finite-step Metropolis correction targets exp(−F₀/T) against flat simplex measure. Energy fluctuates. The acceptance rate helps assess the integration step; low acceptance calls for a smaller dt.',conservative:'The total Hamiltonian should remain close to its initial value. The plot includes potential and kinetic exchange and reports numerical drift. Signed sphere coordinates provide the reflecting continuation at zero probability.',hidden:'The full extended potential decreases in the continuous flow. Prepared hidden energy can reorganize retrieval transiently; F₀ alone need not decrease. Finite RK4 steps can introduce numerical error.'};
+const interpretation={minimal:'Adaptive dynamics are out of equilibrium: the activity potential F₀ is neither conserved nor a Lyapunov function for the coupled (r, θ) flow.',equilibrium:'The finite-step Metropolis correction targets exp(−F₀/T) against flat simplex measure. Energy fluctuates. The acceptance rate helps assess the integration step; low acceptance calls for a smaller dt.',conservative:'The total Hamiltonian should remain close to its initial value. The plot includes potential and kinetic exchange and reports numerical drift. Signed sphere coordinates provide the reflecting continuation at zero probability.',hidden:'The full extended potential decreases in the continuous flow. Prepared hidden energy can reorganize retrieval transiently; F₀ alone need not decrease. Finite RK4 steps can introduce numerical error.'};
 for(const [key,m] of Object.entries(MODELS)){
  const b=document.createElement('button');b.id='tab-'+key;b.type='button';b.className='model-tab';b.setAttribute('role','tab');b.setAttribute('aria-controls','model-panel');b.innerHTML=`<svg class="icon" viewBox="0 0 32 32" aria-hidden="true"><path d="${iconPaths[key]}" fill="none" stroke="#a855f7" stroke-width="1.8" stroke-linecap="round"/></svg><span><strong>${m.short}</strong><small>${{minimal:'Adaptation & latching',equilibrium:'Noise & Gibbs sampling',conservative:'Momentum & energy',hidden:'Reciprocal relaxation'}[key]}</small></span>`;
  b.onclick=()=>selectModel(key);$('model-tabs').append(b);
@@ -56,7 +56,10 @@ function selectModel(key,history=true){
  $('model-panel').setAttribute('aria-labelledby','tab-'+key);$('model-name').textContent=MODELS[key].name;$('model-caption').textContent=MODELS[key].caption;
  $('equation').textContent=MODELS[key].equation;$('method').textContent='Numerical method: '+MODELS[key].method+'.';$('interpretation').textContent=interpretation[key];
  $('model-source').href=`https://github.com/a7dita/HPotts/blob/${SOURCE}/src/${key}_potts.f90`;
- $('metric-energy-label').textContent=MODELS[key].energy;
+ $('metric-energy-label').textContent=key==='minimal'?'Active fraction':MODELS[key].energy;
+ $('energy-card').hidden=key==='minimal';
+ const equations=$('model-equations');equations.replaceChildren();equations.hidden=key==='minimal';
+ if(key!=='minimal'){const template=$('equations-'+key);if(template)equations.append(template.content.cloneNode(true));}
  $('energy-title').textContent=key==='conservative'?'Hamiltonian & energy exchange':key==='hidden'?'Extended potential & activity energy':'Activity free energy';
  $('energy-note').textContent=key==='conservative'?'H = V + K':key==='hidden'?'Fext decreases in the continuous flow':key==='equilibrium'?'Energy fluctuates under noise':'Out-of-equilibrium dynamics';
  $('threshold-card').hidden=key==='equilibrium';$('status').textContent='Ready to explore';$('error').hidden=true;$('progress').value=0;
@@ -73,13 +76,13 @@ function render(){
  const lines=Array.from({length:np},(_,m)=>({colour:memoryColour(m),value:s=>s.overlaps[m]}));
  plotScale=plot($('overlaps'),samples,lines,{window,fixedY:[Math.min(-.05,...samples.map(s=>Math.min(...s.overlaps))),Math.max(1.05,...samples.map(s=>Math.max(...s.overlaps)))]});
  const energies=model==='conservative'?[['H','#9333ea','energy'],['Potential','#0284c7','potential'],['Kinetic','#e0992f','kinetic']]:model==='hidden'?[['Fext','#9333ea','energy'],['F₀','#0284c7','f0']]:[['F₀','#9333ea','energy']];
- plot($('energy'),samples,energies.map(([name,colour,key])=>({name,colour,value:s=>s[key],width:1.8})),{window});
+ if(model!=='minimal')plot($('energy'),samples,energies.map(([name,colour,key])=>({name,colour,value:s=>s[key],width:1.8})),{window});
  $('energy-legend').innerHTML=energies.map(([name,c])=>`<span><i style="background:${c}"></i>${name}</span>`).join('');
  if(model!=='equilibrium')plot($('threshold'),samples,lines.map((l,m)=>({...l,value:s=>s.theta[m]})),{window});
  heatmap($('heatmap'),samples,np,window);network($('network'),q,(run?.config.ns??configs[model].ns)+1);
  if(!$('legend').children.length||$('legend').children.length!==np)$('legend').innerHTML=Array.from({length:np},(_,i)=>`<span><i style="background:${memoryColour(i)}"></i>${i+1}</span>`).join('');
  $('sample-count').textContent=samples.length?`${samples.length.toLocaleString()} saved samples`:'No trajectory yet';
- if(last){const best=last.overlaps.indexOf(Math.max(...last.overlaps));$('metric-time').textContent=format(last.time);$('metric-memory').textContent=best+1;$('metric-overlap').textContent=last.overlaps[best].toFixed(3);$('metric-energy').textContent=last.energy.toFixed(5);
+ if(last){const best=last.overlaps.indexOf(Math.max(...last.overlaps));$('metric-time').textContent=format(last.time);$('metric-memory').textContent=best+1;$('metric-overlap').textContent=last.overlaps[best].toFixed(3);$('metric-energy').textContent=model==='minimal'?last.active.toFixed(3):last.energy.toFixed(5);
   const diag=last.diagnostic;let audit=`Simplex error: ${diag.normalization_error.toExponential(1)}.`;
   if(model==='conservative')audit+=` ΔH/N: ${diag.energy_error.toExponential(3)} · boundary crossings: ${diag.boundary_crossings}.`;
   if(model==='equilibrium')audit+=` Proposal acceptance: ${(100*diag.acceptance).toFixed(1)}%.`;

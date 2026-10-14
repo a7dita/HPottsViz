@@ -1,1 +1,16 @@
-{"name":"hpottsviz","version":"1.0.0","private":true,"type":"module","scripts":{"test":"node --test tests/*.test.mjs","build":"node scripts/build.mjs"},"engines":{"node":"22.x"}}
+{
+  "name": "hpottsviz",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "build": "node scripts/build.mjs"
+  },
+  "engines": {
+    "node": "22.x"
+  },
+  "devDependencies": {
+    "katex": "0.16.47"
+  }
+}

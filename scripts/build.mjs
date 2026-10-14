@@ -1,4 +1,10 @@
-import { mkdir,cp,rm } from 'node:fs/promises';
+import { mkdir,cp,rm,readFile,writeFile } from 'node:fs/promises';
+import katex from 'katex';
+import { EQUATIONS } from '../lib/equations.js';
 await rm('dist',{recursive:true,force:true});await mkdir('dist');
 for(const file of ['index.html','style.css','app.js','worker.js','favicon.svg','lib'])await cp(file,`dist/${file}`,{recursive:true});
-console.log('Built static HPottsViz → dist');
+const escape=text=>text.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+const templates=Object.entries(EQUATIONS).map(([model,{rows,note}])=>`<template id="equations-${model}">${rows.map(({label,latex})=>`<div class="math-row"><p class="math-label">${escape(label)}</p><div class="math-scroll">${katex.renderToString(latex,{displayMode:true,output:'mathml',throwOnError:true,strict:'error',trust:false})}</div></div>`).join('')}<p class="math-note">${escape(note)}</p></template>`).join('\n');
+const html=await readFile('dist/index.html','utf8');
+await writeFile('dist/index.html',html.replace('<!-- MODEL_EQUATION_TEMPLATES -->',templates));
+console.log('Built static HPottsViz with rendered LaTeX → dist');

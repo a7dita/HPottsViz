@@ -21,7 +21,11 @@ steps at 2,000,000 and saved samples at 20,000; other ranges are in `lib/models.
 
 Simulations run in a module Web Worker, with live updates, pause, resume, stop,
 plot time windows, CSV export and full-run JSON export. No server computation,
-credentials, third-party runtime scripts or package dependencies are required.
+credentials or third-party runtime scripts are required. LaTeX is rendered with
+KaTeX at build time into native MathML; there is no runtime math dependency.
+The three non-adaptive models display their key equations below their subtitles.
+Adaptive dynamics show active fraction instead of an energy metric and have no
+energy plot: F₀ is not a Lyapunov function for the coupled adaptive flow.
 Changing models clears the plot; each model retains its own parameter choices.
 
 ## Local development
