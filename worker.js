@@ -1,5 +1,5 @@
 import { Simulation } from './lib/engine.js';
-let sim,paused=false,reversing=false,reverseStep=0,lastFlush=0,pending=[];
+let sim,paused=false,reversing=false,reverseStep=0,lastFlush=0,pending=[],timer=null;
 function flush(type='samples',extra={}){
  postMessage({type,samples:pending,q:sim?.q.slice(),...extra});pending=[];lastFlush=performance.now();
 }
@@ -22,11 +22,11 @@ function tick(){
    }
   }
   if(performance.now()-lastFlush>120)flush('samples',{step:sim.stepNumber,reverseStep});
-  setTimeout(tick,0);
+  timer=setTimeout(tick,0);
  }catch(error){flush('error',{message:error.message});}
 }
 onmessage=({data})=>{
- if(data.type==='pause'){paused=true;postMessage({type:'paused'});return;}
+ if(data.type==='pause'){paused=true;clearTimeout(timer);postMessage({type:'paused'});return;}
  if(data.type==='resume'){paused=false;tick();return;}
  if(data.type==='start'){
   try{

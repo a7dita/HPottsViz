@@ -101,7 +101,7 @@ $('start').onclick=()=>{
   if(data.type==='reversing'){reversing=true;run.final_state=data.state;$('status').textContent='Checking time reversal…';}
   if(data.type==='error'){$('error').hidden=false;$('error').textContent=data.message;$('status').textContent='Stopped after a numerical error';run.status='error';finish();}
   else if(data.type==='complete'){
-   run.status='complete';if(data.reversal)run.reversal=data.reversal;else run.final_state=data.state;
+   run.status='complete';if(data.reversal){run.reversal=data.reversal;q=Float64Array.from(run.final_state.q);}else run.final_state=data.state;
    $('status').textContent=`Simulation complete · ${((performance.now()-started)/1000).toFixed(1)} s`;finish();$('progress').value=1;
   }else if(data.type!=='paused'&&data.type!=='reversing'&&!paused){
    const t=samples.at(-1)?.time??0;const step=data.step??Math.round(t/config.dt);$('progress').value=t/config.duration;

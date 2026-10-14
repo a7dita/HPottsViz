@@ -45,7 +45,7 @@ test('hidden potential is nonincreasing and conservative H error converges under
  assert.ok(errors[1]<errors[0]/3&&errors[2]<errors[1]/3,errors.join(','));
 });
 test('all model parameters have controls and baseline configurations validate',()=>{
- for(const [key,m] of Object.entries(MODELS)){validate(key,m.defaults);for(const k of Object.keys(m.defaults))assert.ok(PARAMS[k],k);}
+ for(const [key,m] of Object.entries(MODELS)){validate(key,m.defaults);for(const [k,v] of Object.entries(m.defaults)){assert.ok(PARAMS[k],k);const steps=(v-PARAMS[k].min)/PARAMS[k].step;assert.ok(Math.abs(steps-Math.round(steps))<1e-6,`${key}.${k} baseline must align with slider increments`);}}
  assert.throws(()=>validate('hidden',{...MODELS.hidden.defaults,alpha:0}),/nonzero/);
  assert.throws(()=>validate('minimal',{...MODELS.minimal.defaults,cue:26}),/cued/);
  assert.throws(()=>validate('minimal',{...MODELS.minimal.defaults,tau_r:.05}),/smaller/);
