@@ -1,4 +1,5 @@
 import { MODELS, PARAMS, SOURCE, N, validate } from './lib/models.js';
+import { parameterDocument, parseParameters } from './lib/parameter-json.js';
 import { plot, heatmap, network, memoryColour, format } from './lib/plots.js';
 const $=id=>document.getElementById(id);
 const configs=Object.fromEntries(Object.entries(MODELS).map(([k,m])=>[k,{...m.defaults}]));
@@ -64,10 +65,10 @@ function selectModel(key,history=true){
  $('energy-title').textContent=key==='conservative'?'Hamiltonian & energy exchange':key==='hidden'?'Extended potential & activity energy':'Activity free energy';
  $('energy-note').textContent=key==='conservative'?'H = V + K':key==='hidden'?'Fext decreases in the continuous flow':key==='equilibrium'?'Energy fluctuates under noise':'Out-of-equilibrium dynamics';
  $('threshold-card').hidden=key==='equilibrium';$('status').textContent='Ready to explore';$('error').hidden=true;$('progress').value=0;
- $('csv').disabled=$('json').disabled=true;controls();render();
+ $('csv').disabled=$('json').disabled=true;$('params-status').textContent='';controls();render();
  if(history)globalThis.history.replaceState(null,'',`/?model=${key}`);
 }
-function setRunning(value){running=value;$('parameter-fields').disabled=value;$('defaults').disabled=value;$('start').disabled=value;$('pause').disabled=!value;$('stop').disabled=!value;
+function setRunning(value){running=value;$('import-params').disabled=$('export-params').disabled=$('params-file').disabled=value;$('parameter-fields').disabled=value;$('defaults').disabled=value;$('start').disabled=value;$('pause').disabled=!value;$('stop').disabled=!value;
  for(const key of Object.keys(MODELS))$('tab-'+key).disabled=value;
  if(!value){paused=false;$('pause').textContent='Pause';contextControls();}
 }
@@ -123,6 +124,25 @@ $('defaults').onclick=()=>{configs[model]={...MODELS[model].defaults};controls()
 $('parameter-form').onsubmit=e=>{e.preventDefault();if(!running)$('start').click();};
 $('window').onchange=queueRender;
 function download(name,data,type){const url=URL.createObjectURL(new Blob([data],{type})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+$('export-params').onclick=()=>{
+ if(running)return;
+ try{
+  const data=parameterDocument(model,configs[model]);
+  download(`hpottsviz-${model}-params.json`,JSON.stringify(data,null,2),'application/json');
+  $('params-status').textContent='Exported the currently selected parameters.';
+ }catch(e){$('params-status').textContent=e.message;}
+};
+$('import-params').onclick=()=>{if(!running)$('params-file').click();};
+$('params-file').onchange=async e=>{
+ const file=e.target.files[0];e.target.value='';if(!file||running)return;
+ // File reads are asynchronous: a run may start before the file is ready.
+ try{
+  const text=await file.text();if(running)return;
+  const data=parseParameters(text);
+  configs[data.model]=data.config;selectModel(data.model);
+  $('error').hidden=true;$('params-status').textContent='Imported parameters. Ready to run.';
+ }catch(e){$('params-status').textContent=e.message;}
+};
 $('json').onclick=()=>download(`hpottsviz-${model}.json`,JSON.stringify({...run,samples,latest_probabilities:q?Array.from(q):null},null,2),'application/json');
 $('csv').onclick=()=>{
  const columns=['time',...Array.from({length:run.config.np},(_,i)=>`m${i+1}`),'energy_per_unit','F0_per_unit','potential_per_unit','kinetic_per_unit','active_mass_per_unit',...Array.from({length:run.config.np},(_,i)=>`theta_m${i+1}`),'normalization_error','min_probability','energy_error','acceptance_rate','dFextdt_per_unit'];

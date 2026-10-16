@@ -17,6 +17,8 @@
 <div class="workspace">
 <aside class="controls">
 <div class="controls-heading"><h3>Your choices</h3><button id="defaults" class="text-button" type="button">Reset defaults</button></div>
+<div class="parameter-actions"><button id="import-params" type="button">Import params JSON</button><button id="export-params" type="button">Export params JSON</button><input id="params-file" type="file" accept=".json,application/json" hidden></div>
+<p id="params-status" class="muted" role="status" aria-live="polite"></p>
 <form id="parameter-form"><fieldset id="parameter-fields"></fieldset></form>
 <div class="run-controls"><button id="start" class="primary" type="button">Start simulation</button><button id="pause" type="button" disabled>Pause</button><button id="stop" type="button" disabled>Stop</button></div>
 <p id="status" role="status" aria-live="polite">Ready to explore</p><progress id="progress" max="1" value="0" aria-label="Simulation progress"></progress><p id="run-estimate" class="muted"></p><p id="error" role="alert" hidden></p>

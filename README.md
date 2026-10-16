@@ -28,6 +28,11 @@ section contains numerical methods, interpretation and reproducibility notes
 without repeated equations.
 Adaptive dynamics show active fraction instead of an energy metric and have no
 energy plot: F₀ is not a Lyapunov function for the coupled adaptive flow.
+Import/export params JSON uses the current control values, independently of the
+last run. Files identify their model and restore all its controls, including seeds
+and initialization choices. Imports are validated before applying any changes;
+parameter import/export is disabled during running and paused simulations.
+Full-run JSON files can also be imported to restore their parameters.
 Changing models clears the plot; each model retains its own parameter choices.
 
 ## Local development
