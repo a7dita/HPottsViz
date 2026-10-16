@@ -15,6 +15,6 @@ test('invalid imports reject incomplete, mistyped, unknown and inconsistent para
  const data=parameterDocument('hidden',MODELS.hidden.defaults);
  const invalid=['{',null,[],{...data,model:'toString'},{...data,version:2},{...data,config:{beta:10}},
  {...data,config:{...data.config,beta:'10'}},{...data,config:{...data.config,extra:1}},
- {...data,config:{...data.config,cue:100,np:2}},{...data,config:{...data.config,alpha:0}}];
+ {...data,config:{...data.config,cue:100,np:2}},{...data,config:{...data.config,hidden_init:3,alpha:0}}];
  for(const value of invalid)assert.throws(()=>parseParameters(typeof value==='string'?value:JSON.stringify(value)));
 });

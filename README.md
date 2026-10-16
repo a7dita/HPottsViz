@@ -14,7 +14,12 @@ energy diagnostics, memory heatmap, 250-unit state grid and threshold projection
 
 The deterministic non-adaptive reference is not a fifth UI model. Every namelist
 parameter for the four selected models is editable except network size, fixed
-at **250**. Defaults match the corresponding HPotts baseline configurations.
+at **250**. Equilibrium and conservative defaults match the thesis figure
+parameters (`equilibrium_structured_U0p1_T0p02.json` and `conservative_U0p4.json`).
+Hidden defaults match the screenshot-verified `fresh.csv` run recorded in the
+thesis as `hidden_transient_hpottsviz.json`: activity-scaled initialization,
+ρ=10, κ=0, λ=5, g=1.2, dt=0.2, duration 50 and sampling every step.
+Adaptive defaults retain the HPotts baseline configuration.
 Numeric inputs complement sliders; hidden controls are enabled for the applicable
 initialization. Browser resource limits cap S at 12, memories at 100, integration
 steps at 2,000,000 and saved samples at 20,000; other ranges are in `lib/models.js`.
