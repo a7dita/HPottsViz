@@ -77,7 +77,7 @@ function render(){
  const last=samples.at(-1),window=$('window').value,np=run?.config.np??configs[model].np;
  const lines=Array.from({length:np},(_,m)=>({colour:memoryColour(m),value:s=>s.overlaps[m]}));
  plotScale=plot($('overlaps'),samples,lines,{window,fixedY:[Math.min(-.05,...samples.map(s=>Math.min(...s.overlaps))),Math.max(1.05,...samples.map(s=>Math.max(...s.overlaps)))]});
- const energies=model==='conservative'?[['H','#9333ea','energy'],['Potential','#0284c7','potential'],['Kinetic','#e0992f','kinetic']]:model==='hidden'?[['Fext','#9333ea','energy'],['F₀','#0284c7','f0']]:[['F₀','#9333ea','energy']];
+ const energies=model==='conservative'?[['H','#9333ea','energy'],['Potential','#0284c7','potential'],['Kinetic','#e0992f','kinetic'],['F₀','#16a34a','f0']]:model==='hidden'?[['Fext','#9333ea','energy'],['F₀','#0284c7','f0']]:[['F₀','#9333ea','energy']];
  if(model!=='minimal')plot($('energy'),samples,energies.map(([name,colour,key])=>({name,colour,value:s=>s[key],width:1.8})),{window});
  $('energy-legend').innerHTML=energies.map(([name,c])=>`<span><i style="background:${c}"></i>${name}</span>`).join('');
  if(model!=='equilibrium')plot($('threshold'),samples,lines.map((l,m)=>({...l,value:s=>s.theta[m]})),{window});
