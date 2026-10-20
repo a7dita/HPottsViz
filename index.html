@@ -9,7 +9,7 @@
 <body>
 <header class="site-header"><a href="/" class="brand">H<span>Potts</span>Viz</a><nav aria-label="External resources"><a href="https://pottsviz.vercel.app" target="_blank" rel="noopener">PottsViz ↗</a><a href="https://github.com/a7dita/HPottsViz" target="_blank" rel="noopener">Source ↗</a></nav></header>
 <main>
-<section class="intro"><p class="eyebrow">POTTS ASSOCIATIVE NETWORKS</p><h1>Four ways a memory can move.</h1><p>Explore adaptation, equilibrium noise, conserved motion and hidden fields.<br class="desktop-break"> Choose a model, adjust its parameters, and watch the memories unfold.</p></section>
+<section class="intro"><p class="eyebrow">POTTS ASSOCIATIVE NETWORKS</p><h1>Five ways a memory can move.</h1><p>Explore adaptation, equilibrium noise, conserved motion and hidden fields.<br class="desktop-break"> Choose a model, adjust its parameters, and watch the memories unfold.</p></section>
 <div id="model-tabs" class="model-tabs" role="tablist" aria-label="Choose a model"></div>
 <section id="model-panel" role="tabpanel" aria-labelledby="tab-minimal">
 <div class="model-heading"><div><h2 id="model-name"></h2><p id="model-caption"></p></div><span class="network-badge">250 units · fixed network size</span></div>
@@ -32,7 +32,7 @@
 <div class="export-row"><span class="muted" id="sample-count">No trajectory yet</span><button id="csv" type="button" disabled>Download overlaps</button><button id="json" type="button" disabled>Download full run</button></div>
 </div>
 </div>
-<details class="about"><summary>Numerical method, interpretation &amp; reproducibility</summary><p id="method"></p><p id="interpretation"></p><p>All four models use the same symmetric, diluted Hebbian network, sparse random memories and partial cue. The activity potential combines recurrent interactions, a fixed threshold for active probability mass, and categorical entropy, including the inactive state.</p><p>Seeds are reproducible within HPottsViz. The browser uses Mulberry32, so the same numeric seed does not generate the same network or noise sequence as Fortran HPotts. The full-run download includes parameters, memories, graph, initial state, trajectory and the latest state. Parameters are held fixed while a run is active.</p><p><a id="model-source" target="_blank" rel="noopener">HPotts source implementation ↗</a> · <a href="https://github.com/a7dita/HPottsViz#validation" target="_blank" rel="noopener">Port validation ↗</a></p></details>
+<details class="about"><summary>Numerical method, interpretation &amp; reproducibility</summary><p id="method"></p><p id="interpretation"></p><p>All five models use the same symmetric, diluted Hebbian network, sparse random memories and partial cue. The activity potential combines recurrent interactions, a fixed threshold for active probability mass, and categorical entropy, including the inactive state.</p><p>Seeds are reproducible within HPottsViz. The browser uses Mulberry32, so the same numeric seed does not generate the same network or noise sequence as Fortran HPotts. The full-run download includes parameters, memories, graph, initial state, trajectory and the latest state. Parameters are held fixed while a run is active.</p><p><a id="model-source" target="_blank" rel="noopener">HPotts source implementation ↗</a> · <a href="https://github.com/a7dita/HPottsViz#validation" target="_blank" rel="noopener">Port validation ↗</a></p></details>
 </section>
 </main>
 <footer>HPottsViz <span>·</span> An interactive companion to HPotts <span>·</span> Inspired by PottsViz</footer>

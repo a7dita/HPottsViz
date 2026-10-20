@@ -15,7 +15,7 @@ function tick(){
     sim.step();
     if(sim.stepNumber%sim.p.save_every===0||sim.stepNumber===sim.steps)pending.push(sim.sample());
     if(sim.stepNumber===sim.steps){
-     if(sim.model==='conservative'&&sim.p.reverse_check){
+     if(sim.isHamiltonian&&sim.p.reverse_check){
       flush('reversing',{state:sim.snapshot()});sim.reverseMomenta();reversing=true;
      }else{flush('complete',{state:sim.snapshot()});return;}
     }
