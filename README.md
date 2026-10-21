@@ -26,7 +26,7 @@ thesis as `hidden_transient_hpottsviz.json`: activity-scaled initialization,
 ρ=10, κ=0, λ=5, g=1.2, dt=0.2, duration 50 and sampling every step.
 Adaptive defaults retain the HPotts baseline configuration.
 Numeric inputs complement sliders; hidden controls are enabled for the applicable
-initialization. Browser resource limits cap S at 12, memories at 100, integration
+initialization. Browser resource limits cap S at 12, memory load α at 0.4 (up to 400 memories), integration
 steps at 2,000,000 and saved samples at 20,000; other ranges are in `lib/models.js`.
 
 Simulations run in a module Web Worker, with live updates, pause, resume, stop,
@@ -51,20 +51,30 @@ Every model has a **Network size** selector under **Network**: **250 (1×)**,
 **500 (2×)** or **1,000 (4×)**. Network construction, sparse-memory populations,
 Hebbian normalization, fields, overlaps, energy per unit, kinetic initialization,
 noise updates, hidden/adaptive fields and all integration loops use the chosen N.
+**Memory load α = p/N** replaces the manual stored-memory count and defaults to
+**0.1** in every model. The engine uses **p = round(αN)**, giving **25, 50 and
+100 memories** at the three sizes. The controls display the derived count and
+update the cue range and plot legends when N or α changes.
 The state grid includes every unit and adapts its layout. JSON parameters and
-full-run exports retain the size; CSV exports include a `network_size` column.
-Old parameter files without `n` import as N=250, and the original 250-unit
+full-run exports retain the size and memory load; full-run JSON also records the
+derived `memory_count`. CSV exports include `network_size`, `memory_load` and
+`memory_count` columns.
+Old parameter files without `n` import as N=250. Legacy `np` is converted to
+α = np/N, preserving the original memory count. The original 250-unit
 Fortran reference tests continue to pass.
 
 To test a finite-size effect at fixed nominal memory load and connectivity,
-compare **(N,p) = (250,25), (500,50), (1000,100)**. This keeps p/N, and hence
-p/(Nc) at fixed c, constant. The UI shows nominal load p/(Nc), and changing N
-does not silently change p or c. Keeping p=25 instead tests a different path,
-where load decreases as N grows. Memories and connectivity are regenerated at
-each N; a common seed does not make networks of different sizes nested. Compare
-several seeds and keep the other intensive parameters, initial K/N, target
-F₀/N, timestep and duration matched when appropriate. Discrete memory sparsity
-still uses floor(Na), as in the original implementation.
+keep **α = 0.1** and c fixed, then change N: the app automatically uses
+**(N,p) = (250,25), (500,50), (1000,100)**. This keeps p/N, and hence p/(Nc)
+at fixed c, constant up to integer rounding. No other parameter is changed.
+Memories and connectivity are regenerated at each N; a common seed does not
+make networks of different sizes nested. Compare several seeds and keep the
+other intensive parameters, initial K/N, target F₀/N, timestep and duration
+matched when appropriate. Discrete sparsity still uses floor(Na), as in the
+original implementation. At least one stored memory is required. The allowed
+load range is 0.001–0.4 (up to 400 memories at N=1000). In the hidden model,
+`alpha` remains the independent hidden-mixture coefficient; the network load
+is stored as `memory_load` to keep these two quantities distinct.
 
 At fixed c and S, coupling storage and per-step work scale approximately as N²,
 so 2× and 4× the units require roughly 4× and 16× the coupling work. Very dense

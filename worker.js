@@ -32,7 +32,7 @@ onmessage=({data})=>{
   try{
    sim=new Simulation(data.model,data.config);pending=[sim.sample()];
    const edges=[];for(let i=0;i<sim.net.n;i++)for(let e=sim.net.offsets[i];e<sim.net.offsets[i+1];e++)if(sim.net.neighbors[e]<i)edges.push([i,sim.net.neighbors[e]]);
-   flush('ready',{steps:sim.steps,network_size:sim.net.n,patterns:sim.net.patterns.map(p=>Array.from(p)),edges,initial:sim.snapshot()});tick();
+   flush('ready',{steps:sim.steps,network_size:sim.net.n,memory_count:sim.net.patterns.length,patterns:sim.net.patterns.map(p=>Array.from(p)),edges,initial:sim.snapshot()});tick();
   }catch(error){postMessage({type:'error',message:error.message});}
  }
 };

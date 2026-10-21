@@ -23,7 +23,7 @@ for(const n of NETWORK_SIZES)for(const model of Object.keys(MODELS))test(`${mode
 });
 
 for(const n of NETWORK_SIZES)test(`N=${n}: Hebbian denominator, fields and energy per unit use N, including the last unit`,()=>{
- const p={...MODELS.conservative_f0.defaults,n,ns:2,np:1,aa:.2,kinetic_sigma:.03};
+ const p={...MODELS.conservative_f0.defaults,n,ns:2,memory_load:1/n,aa:.2,kinetic_sigma:.03};
  const pattern=Array.from({length:n},(_,i)=>i<Math.floor(n*p.aa)?1:0);
  const graph={patterns:[pattern],edges:[[0,n-1]]};
  const net=new Network(p,graph),bias=p.aa/p.ns;

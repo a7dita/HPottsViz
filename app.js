@@ -1,4 +1,4 @@
-import { MODELS, PARAMS, SOURCE, validate } from './lib/models.js';
+import { MODELS, PARAMS, SOURCE, memoryCount, validate } from './lib/models.js';
 import { parameterDocument, parseParameters } from './lib/parameter-json.js';
 import { plot, heatmap, network, memoryColour, format } from './lib/plots.js';
 const $=id=>document.getElementById(id);
@@ -25,14 +25,14 @@ function controls(){
    const row=document.createElement('div');row.className='input-row';let input,slider;
    if(meta.options){input=document.createElement('select');meta.options.forEach((name,v)=>{const o=document.createElement('option');o.value=meta.values?.[v]??v;o.textContent=name;input.append(o);});input.value=config[key];}
    else{
-    input=document.createElement('input');input.type='number';input.min=meta.min;input.max=key==='cue'?config.np:meta.max;input.step=meta.step;input.value=config[key];
+    input=document.createElement('input');input.type='number';input.min=meta.min;input.max=key==='cue'?memoryCount(config):meta.max;input.step=meta.step;input.value=config[key];
     if(!key.includes('seed')&&!meta.numberOnly){
      slider=document.createElement('input');slider.type='range';slider.min=meta.min;slider.max=input.max;slider.step=meta.step;slider.value=config[key];slider.setAttribute('aria-label',meta.label+' slider');
      slider.oninput=()=>{input.value=slider.value;update(key,Number(input.value));};row.append(slider);
     }
    }
    input.id=id;input.setAttribute('aria-describedby',help.id);input.title=meta.help;
-   input.oninput=()=>{if(slider)slider.value=input.value;update(key,input.value===''?NaN:Number(input.value));};row.append(input);div.append(row,help);details.append(div);
+   input.oninput=()=>{if(slider)slider.value=input.value;update(key,input.value===''?NaN:Number(input.value));};row.append(input);div.append(row,help);if(key==='memory_load'){const count=document.createElement('p');count.id='memory-count';count.className='plot-note';div.append(count);}details.append(div);
   }fields.append(details);
  }
  contextControls();estimate();
@@ -40,9 +40,13 @@ function controls(){
 function update(key,value){
  configs[model][key]=value;
  if(model==='conservative_f0'&&key==='prepare_f0'&&value){configs[model].reverse_check=0;$('param-reverse_check').value=0;}
- if(key==='np'){
-  if(configs[model].cue>value){configs[model].cue=value;$('param-cue').value=value;}
-  $('param-cue').max=value;const slider=$('param-cue').parentElement.querySelector('[type=range]');if(slider){slider.max=value;slider.value=configs[model].cue;}
+ if(key==='n'||key==='memory_load'){
+  const count=memoryCount(configs[model]);
+  if(Number.isInteger(count)&&count>=1){
+   if(configs[model].cue>count){configs[model].cue=count;$('param-cue').value=count;}
+   $('param-cue').max=count;const slider=$('param-cue').parentElement.querySelector('[type=range]');if(slider){slider.max=count;slider.value=configs[model].cue;}
+  }
+  if(!run)queueRender();
  }
  contextControls();estimate();
 }
@@ -62,7 +66,7 @@ function contextControls(){
   const input=$('param-'+k);input.disabled=!enabled;const slider=input.parentElement.querySelector('[type=range]');if(slider)slider.disabled=!enabled;
  }
 }
-function estimate(){const p=configs[model],steps=Math.round(p.duration/p.dt);$('run-estimate').textContent=Number.isFinite(steps)?`${p.n.toLocaleString()} units · ${steps.toLocaleString()} integration steps · sample every ${p.save_every} steps · load p/(Nc) = ${(p.np/(p.n*p.c)).toFixed(3)}`:'';networkLabels(run?.config.n??p.n);}
+function estimate(){const p=configs[model],steps=Math.round(p.duration/p.dt);$('memory-count').textContent=`${memoryCount(p)} stored memories at N = ${p.n.toLocaleString()}`;$('run-estimate').textContent=Number.isFinite(steps)?`${p.n.toLocaleString()} units · ${steps.toLocaleString()} integration steps · sample every ${p.save_every} steps · ${memoryCount(p)} stored memories (α = ${p.memory_load})`:'';networkLabels(run?.config.n??p.n);}
 function networkLabels(n){$('network-badge').textContent=`${n.toLocaleString()} units`;$('network').setAttribute('aria-label',`Current most probable category of each of the ${n} units`);}
 function selectModel(key,history=true){
  if(running)return;model=key;samples=[];q=null;run=null;reversing=false;document.title=`${MODELS[key].name} · HPottsViz`;
@@ -88,7 +92,7 @@ function setRunning(value){running=value;$('import-params').disabled=$('export-p
 }
 function queueRender(){if(!renderQueued){renderQueued=true;requestAnimationFrame(()=>{renderQueued=false;render();});}}
 function render(){
- const last=samples.at(-1),window=$('window').value,np=run?.config.np??configs[model].np;
+ const last=samples.at(-1),window=$('window').value,np=memoryCount(run?.config??configs[model]);
  const lines=Array.from({length:np},(_,m)=>({colour:memoryColour(m),value:s=>s.overlaps[m]}));
  plotScale=plot($('overlaps'),samples,lines,{window,fixedY:[Math.min(-.05,...samples.map(s=>Math.min(...s.overlaps))),Math.max(1.05,...samples.map(s=>Math.max(...s.overlaps)))]});
  const energies=model==='conservative_f0'?[['H','#9333ea','energy'],['F₀','#0284c7','f0'],['Kinetic','#e0992f','kinetic']]:model==='conservative'?[['H','#9333ea','energy'],['Potential','#0284c7','potential'],['Kinetic','#e0992f','kinetic'],['F₀','#16a34a','f0']]:model==='hidden'?[['Fext','#9333ea','energy'],['F₀','#0284c7','f0']]:[['F₀','#9333ea','energy']];
@@ -120,7 +124,7 @@ function render(){
 $('start').onclick=()=>{
  const config={...configs[model]};try{validate(model,config);}catch(e){$('error').hidden=false;$('error').textContent=e.message;return;}
  worker?.terminate();samples=[];q=null;paused=false;reversing=false;started=performance.now();
- run={version:1,model,config,network_size:config.n,source_commit:SOURCE,engine:'HPottsViz JavaScript / Mulberry32',started_at:new Date().toISOString()};
+ run={version:1,model,config,network_size:config.n,memory_count:memoryCount(config),source_commit:SOURCE,engine:'HPottsViz JavaScript / Mulberry32',started_at:new Date().toISOString()};
  $('error').hidden=true;$('status').textContent='Preparing memories and connectivity…';$('progress').value=0;setRunning(true);render();
  worker=new Worker(new URL('./worker.js',import.meta.url),{type:'module'});
  worker.onmessage=({data})=>{
@@ -171,8 +175,8 @@ $('params-file').onchange=async e=>{
 $('json').onclick=()=>download(`hpottsviz-${model}.json`,JSON.stringify({...run,samples,latest_probabilities:q?Array.from(q):null},null,2),'application/json');
 $('csv').onclick=()=>{
  const preparationKeys=model==='conservative_f0'?['preparation_phase','f0_mean_100','f0_window_count','f0_target','f0_tolerance','f0_stable_steps','rescale_count','release_step','release_energy']:[];
- const columns=['time',...Array.from({length:run.config.np},(_,i)=>`m${i+1}`),'energy_per_unit','F0_per_unit','potential_per_unit','kinetic_per_unit','active_mass_per_unit',...Array.from({length:run.config.np},(_,i)=>`theta_m${i+1}`),'normalization_error','min_probability','energy_error','acceptance_rate','dFextdt_per_unit',...preparationKeys,'network_size'];
- const rows=samples.map(s=>[s.time,...s.overlaps,s.energy,s.f0,s.potential,s.kinetic,s.active,...Array.from({length:run.config.np},(_,i)=>s.theta[i]??''),s.diagnostic.normalization_error,s.diagnostic.min_probability,s.diagnostic.energy_error??'',s.diagnostic.acceptance??'',s.diagnostic.dissipation??'',...preparationKeys.map(key=>s.diagnostic[key]??''),run.config.n].join(','));
+ const columns=['time',...Array.from({length:memoryCount(run.config)},(_,i)=>`m${i+1}`),'energy_per_unit','F0_per_unit','potential_per_unit','kinetic_per_unit','active_mass_per_unit',...Array.from({length:memoryCount(run.config)},(_,i)=>`theta_m${i+1}`),'normalization_error','min_probability','energy_error','acceptance_rate','dFextdt_per_unit',...preparationKeys,'network_size','memory_load','memory_count'];
+ const rows=samples.map(s=>[s.time,...s.overlaps,s.energy,s.f0,s.potential,s.kinetic,s.active,...Array.from({length:memoryCount(run.config)},(_,i)=>s.theta[i]??''),s.diagnostic.normalization_error,s.diagnostic.min_probability,s.diagnostic.energy_error??'',s.diagnostic.acceptance??'',s.diagnostic.dissipation??'',...preparationKeys.map(key=>s.diagnostic[key]??''),run.config.n,run.config.memory_load,memoryCount(run.config)].join(','));
  download(`hpottsviz-${model}.csv`,[columns.join(','),...rows].join('\n'),'text/csv');
 };
 $('overlaps').onpointermove=e=>{

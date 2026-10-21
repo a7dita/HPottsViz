@@ -8,7 +8,7 @@ for(const model of Object.keys(MODELS))test(`${model}: browser worker streams sa
  const worker=new Worker(new URL('data:text/javascript,'+encodeURIComponent(adapter)),{type:'module'});
  try{await new Promise((resolve,reject)=>{
   const received=[];worker.on('error',reject);worker.on('message',data=>{
-   if(data.type==='loaded')worker.postMessage({type:'start',model,config:{...MODELS[model].defaults,ns:2,np:4,c:.05,duration:.1,dt:.01,save_every:2,...(model==='conservative_f0'?{reverse_check:1}:{})}});
+   if(data.type==='loaded')worker.postMessage({type:'start',model,config:{...MODELS[model].defaults,ns:2,memory_load:4/250,c:.05,duration:.1,dt:.01,save_every:2,...(model==='conservative_f0'?{reverse_check:1}:{})}});
    if(data.type==='error')reject(Error(data.message));if(data.samples)received.push(...data.samples);
    if(data.type==='complete'){assert.equal(received.length,6);assert.equal(received[0].time,0);assert.equal(received.at(-1).time,.1);assert.ok(data.state.q.length===750);if(model==='conservative_f0'){assert.ok(data.reversal.position<1e-11&&data.reversal.momentum<1e-11);assert.ok(!('theta' in data.state)&&!('pt' in data.state));}resolve();}
   });
@@ -19,7 +19,7 @@ test('F0 preparation worker saves the release point even between sparse plot sam
  const worker=new Worker(new URL('data:text/javascript,'+encodeURIComponent(adapter)),{type:'module'});
  try{await new Promise((resolve,reject)=>{
   const received=[];worker.on('error',reject);worker.on('message',data=>{
-   if(data.type==='loaded')worker.postMessage({type:'start',model:'conservative_f0',config:{...MODELS.conservative_f0.defaults,ns:2,np:4,c:.05,duration:1.2,dt:.005,save_every:10000,prepare_f0:1,f0_tolerance:.5}});
+   if(data.type==='loaded')worker.postMessage({type:'start',model:'conservative_f0',config:{...MODELS.conservative_f0.defaults,ns:2,memory_load:4/250,c:.05,duration:1.2,dt:.005,save_every:10000,prepare_f0:1,f0_tolerance:.5}});
    if(data.type==='error')reject(Error(data.message));if(data.samples)received.push(...data.samples);
    if(data.type==='complete'){
     assert.equal(data.preparation.preparation_phase,'released');assert.equal(data.preparation.release_step,199);
@@ -36,13 +36,13 @@ for(const model of Object.keys(MODELS))test(`${model}: worker exports the full 1
  try{await new Promise((resolve,reject)=>{
   let ready;
   worker.on('error',reject);worker.on('message',data=>{
-   if(data.type==='loaded')worker.postMessage({type:'start',model,config:{...MODELS[model].defaults,n:1000,ns:2,np:4,c:.01,duration:.02,dt:.01,save_every:1}});
+   if(data.type==='loaded')worker.postMessage({type:'start',model,config:{...MODELS[model].defaults,n:1000,ns:2,c:.01,duration:.02,dt:.01,save_every:1}});
    if(data.type==='error')reject(Error(data.message));
    if(data.type==='ready'){
-    ready=data;assert.equal(data.network_size,1000);assert.equal(data.initial.q.length,3000);assert.ok(data.patterns.every(p=>p.length===1000));
+    ready=data;assert.equal(data.network_size,1000);assert.equal(data.memory_count,100);assert.equal(data.patterns.length,100);assert.equal(data.initial.q.length,3000);assert.ok(data.patterns.every(p=>p.length===1000));
     assert.ok(data.edges.some(([i,j])=>i===999||j===999));assert.ok(data.edges.every(([i,j])=>i<1000&&j<1000));
    }
-   if(data.type==='complete'){assert.ok(ready);assert.equal(data.state.q.length,3000);assert.ok(data.samples.at(-1).diagnostic.normalization_error<1e-12);resolve();}
+   if(data.type==='complete'){assert.ok(ready);assert.equal(data.state.q.length,3000);assert.equal(data.samples.at(-1).overlaps.length,100);assert.ok(data.samples.at(-1).diagnostic.normalization_error<1e-12);resolve();}
   });
  });}finally{await worker.terminate();}
 });

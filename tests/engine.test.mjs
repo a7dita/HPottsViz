@@ -32,7 +32,7 @@ test('equilibrium: Fortran initial energy and overlaps, exact conditional energy
  proposal.newprob.forEach((v,i)=>near(v,expected.prob[i]));near(proposal.df,expected.df);near(proposal.logAccept,expected.logAccept);
 });
 test('equilibrium: reproducible noisy trajectory stays on simplex; acceptance lies in [0,1]',()=>{
- const p={...MODELS.equilibrium.defaults,ns:2,np:5,c:.05,duration:.1,save_every:1};
+ const p={...MODELS.equilibrium.defaults,ns:2,memory_load:5/250,c:.05,duration:.1,save_every:1};
  const a=new Simulation('equilibrium',p),b=new Simulation('equilibrium',p);
  for(let i=0;i<10;i++){a.step();b.step();b.sample();const sample=a.sample();assert.ok(sample.diagnostic.normalization_error<1e-12);assert.ok(sample.diagnostic.min_probability>0);assert.ok(sample.diagnostic.acceptance>=0&&sample.diagnostic.acceptance<=1);}
  assert.deepEqual(a.q,b.q);
