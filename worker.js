@@ -1,7 +1,7 @@
 import { Simulation } from './lib/engine.js';
 let sim,paused=false,reversing=false,reverseStep=0,lastFlush=0,pending=[],timer=null;
 function flush(type='samples',extra={}){
- postMessage({type,samples:pending,q:sim?.q.slice(),...extra});pending=[];lastFlush=performance.now();
+ postMessage({type,samples:pending,q:sim?.q.slice(),preparation:sim?.preparation?.diagnostics(),...extra});pending=[];lastFlush=performance.now();
 }
 function tick(){
  if(paused||!sim)return;
@@ -13,7 +13,7 @@ function tick(){
     if(reverseStep===sim.steps){flush('complete',{reversal:sim.reversalError(),state:sim.snapshot()});return;}
    }else{
     sim.step();
-    if(sim.stepNumber%sim.p.save_every===0||sim.stepNumber===sim.steps)pending.push(sim.sample());
+    if(sim.stepNumber%sim.p.save_every===0||sim.stepNumber===sim.steps||sim.preparation?.releaseStep===sim.stepNumber)pending.push(sim.sample());
     if(sim.stepNumber===sim.steps){
      if(sim.isHamiltonian&&sim.p.reverse_check){
       flush('reversing',{state:sim.snapshot()});sim.reverseMomenta();reversing=true;

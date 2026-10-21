@@ -26,7 +26,7 @@ function controls(){
    if(meta.options){input=document.createElement('select');meta.options.forEach((name,v)=>{const o=document.createElement('option');o.value=v;o.textContent=name;input.append(o);});input.value=config[key];}
    else{
     input=document.createElement('input');input.type='number';input.min=meta.min;input.max=key==='cue'?config.np:meta.max;input.step=meta.step;input.value=config[key];
-    if(!key.includes('seed')){
+    if(!key.includes('seed')&&!meta.numberOnly){
      slider=document.createElement('input');slider.type='range';slider.min=meta.min;slider.max=input.max;slider.step=meta.step;slider.value=config[key];slider.setAttribute('aria-label',meta.label+' slider');
      slider.oninput=()=>{input.value=slider.value;update(key,Number(input.value));};row.append(slider);
     }
@@ -39,13 +39,24 @@ function controls(){
 }
 function update(key,value){
  configs[model][key]=value;
+ if(model==='conservative_f0'&&key==='prepare_f0'&&value){configs[model].reverse_check=0;$('param-reverse_check').value=0;}
  if(key==='np'){
   if(configs[model].cue>value){configs[model].cue=value;$('param-cue').value=value;}
   $('param-cue').max=value;const slider=$('param-cue').parentElement.querySelector('[type=range]');if(slider){slider.max=value;slider.value=configs[model].cue;}
  }
  contextControls();estimate();
 }
-function contextControls(){if(model!=='hidden')return;
+function contextControls(){
+ if(model==='conservative_f0'){
+  const enabled=Boolean(configs[model].prepare_f0);
+  for(const key of ['target_f0','f0_tolerance'])$('param-'+key).disabled=!enabled;
+  $('param-reverse_check').disabled=enabled;
+  $('preparation-note').hidden=!enabled;
+  $('preparation-note').textContent='Preparation: average F₀/N over the last 100 integration steps. Below target, multiply momenta by 1.001; above target, divide by 1.001. Inside tolerance, do not rescale. Release permanently after 100 consecutive means within tolerance. Duration includes preparation; H is conserved only after release. Full-run time reversal is unavailable during preparation.';
+  $('model-caption').textContent=enabled?'Prepare a target mean F₀, then release activity into conservative motion.':MODELS[model].caption;
+  if(!samples.length)$('energy-note').textContent=enabled?'Preparation → conservative motion':'H = F₀ + K';
+ }else $('preparation-note').hidden=true;
+ if(model!=='hidden')return;
  const init=configs.hidden.hidden_init;
  for(const [k,enabled] of [['initial_a',init>0],['initial_u',init===1],['hidden_seed',init>=2]]){
   const input=$('param-'+k);input.disabled=!enabled;const slider=input.parentElement.querySelector('[type=range]');if(slider)slider.disabled=!enabled;
@@ -80,7 +91,8 @@ function render(){
  const lines=Array.from({length:np},(_,m)=>({colour:memoryColour(m),value:s=>s.overlaps[m]}));
  plotScale=plot($('overlaps'),samples,lines,{window,fixedY:[Math.min(-.05,...samples.map(s=>Math.min(...s.overlaps))),Math.max(1.05,...samples.map(s=>Math.max(...s.overlaps)))]});
  const energies=model==='conservative_f0'?[['H','#9333ea','energy'],['F₀','#0284c7','f0'],['Kinetic','#e0992f','kinetic']]:model==='conservative'?[['H','#9333ea','energy'],['Potential','#0284c7','potential'],['Kinetic','#e0992f','kinetic'],['F₀','#16a34a','f0']]:model==='hidden'?[['Fext','#9333ea','energy'],['F₀','#0284c7','f0']]:[['F₀','#9333ea','energy']];
- if(model!=='minimal')plot($('energy'),samples,energies.map(([name,colour,key])=>({name,colour,value:s=>s[key],width:1.8})),{window});
+ if(model==='conservative_f0'&&(run?.config??configs[model]).prepare_f0)energies.push(['Mean F₀ (100 steps)','#16a34a','f0_mean_100'],['Target mean','#64748b','f0_target']);
+ if(model!=='minimal')plot($('energy'),samples,energies.map(([name,colour,key])=>({name,colour,value:s=>key==='f0_mean_100'||key==='f0_target'?s.diagnostic[key]:s[key],width:1.8})),{window});
  $('energy-legend').innerHTML=energies.map(([name,c])=>`<span><i style="background:${c}"></i>${name}</span>`).join('');
  if(model!=='equilibrium'&&model!=='conservative_f0')plot($('threshold'),samples,lines.map((l,m)=>({...l,value:s=>s.theta[m]})),{window});
  heatmap($('heatmap'),samples,np,window);network($('network'),q,(run?.config.ns??configs[model].ns)+1);
@@ -88,8 +100,15 @@ function render(){
  $('sample-count').textContent=samples.length?`${samples.length.toLocaleString()} saved samples`:'No trajectory yet';
  if(last){const best=last.overlaps.indexOf(Math.max(...last.overlaps));$('metric-time').textContent=format(last.time);$('metric-memory').textContent=best+1;$('metric-overlap').textContent=last.overlaps[best].toFixed(3);$('metric-energy').textContent=model==='minimal'?last.active.toFixed(3):last.energy.toFixed(5);
   const diag=last.diagnostic;let audit=`Simplex error: ${diag.normalization_error.toExponential(1)}.`;
-  if(isHamiltonian(model))audit+=` ΔH/N: ${diag.energy_error.toExponential(3)} · boundary crossings: ${diag.boundary_crossings}.`;
+  if(isHamiltonian(model))audit+=`${diag.energy_error===null?' H changes during preparation.':` ΔH/N${diag.preparation_phase==='released'?' since release':''}: ${diag.energy_error.toExponential(3)}.`} Boundary crossings: ${diag.boundary_crossings}.`;
   if(model==='conservative_f0'){const initial=samples[0];audit+=` Initial H/N: ${initial.energy.toFixed(6)} = F₀/N ${initial.f0.toFixed(6)} + K/N ${initial.kinetic.toFixed(6)}.`;}
+  if(diag.preparation_phase){
+   const mean=diag.f0_mean_100===null?`collecting ${diag.f0_window_count}/100 steps`:diag.f0_mean_100.toFixed(6);
+   audit+=` Mean F₀/N (last 100 steps): ${mean}; target ${diag.f0_target} ± ${diag.f0_tolerance}.`;
+   if(diag.preparation_phase==='preparing')audit+=` Preparing · within tolerance ${diag.f0_stable_steps}/100 steps · ${diag.rescale_count} rescalings.`;
+   else audit+=` Released at t=${format(diag.release_step*(run?.config.dt??configs[model].dt))}; H/N at release ${diag.release_energy.toFixed(6)}. Rescaling is permanently off.`;
+   $('energy-note').textContent=diag.preparation_phase==='preparing'?'Preparation · H changes':'Released · H = F₀ + K conserved';
+  }
   if(model==='equilibrium')audit+=` Proposal acceptance: ${(100*diag.acceptance).toFixed(1)}%.`;
   if(model==='hidden')audit+=` Predicted dFext/dt per unit: ${diag.dissipation.toExponential(3)}.`;
   if(run?.reversal)audit+=` Reversal errors · position ${run.reversal.position.toExponential(2)}, momentum ${run.reversal.momentum.toExponential(2)}.`;
@@ -104,16 +123,17 @@ $('start').onclick=()=>{
  worker=new Worker(new URL('./worker.js',import.meta.url),{type:'module'});
  worker.onmessage=({data})=>{
   if(data.samples)samples.push(...data.samples);if(data.q)q=data.q;
+  if(data.preparation)run.preparation=data.preparation;
   if(data.type==='ready'){Object.assign(run,{patterns:data.patterns,edges:data.edges,initial_state:data.initial});}
   if(data.type==='paused'){paused=true;$('pause').textContent='Resume';$('status').textContent='Paused';}
   if(data.type==='reversing'){reversing=true;run.final_state=data.state;$('status').textContent='Checking time reversal…';}
   if(data.type==='error'){$('error').hidden=false;$('error').textContent=data.message;$('status').textContent='Stopped after a numerical error';run.status='error';finish();}
   else if(data.type==='complete'){
    run.status='complete';if(data.reversal){run.reversal=data.reversal;q=Float64Array.from(run.final_state.q);}else run.final_state=data.state;
-   $('status').textContent=`Simulation complete · ${((performance.now()-started)/1000).toFixed(1)} s`;finish();$('progress').value=1;
+   $('status').textContent=`${data.preparation?.preparation_phase==='preparing'?'Run ended before target stabilized · rescaling was still active':'Simulation complete'} · ${((performance.now()-started)/1000).toFixed(1)} s`;finish();$('progress').value=1;
   }else if(data.type!=='paused'&&data.type!=='reversing'&&!paused){
    const t=samples.at(-1)?.time??0;const step=data.step??Math.round(t/config.dt);$('progress').value=t/config.duration;
-   $('status').textContent=reversing?`Checking time reversal · ${data.reverseStep??0} / ${Math.round(config.duration/config.dt)}`:`Running · ${format(t)} / ${config.duration} time units · step ${step.toLocaleString()}`;
+   $('status').textContent=reversing?`Checking time reversal · ${data.reverseStep??0} / ${Math.round(config.duration/config.dt)}`:`${data.preparation?.preparation_phase==='preparing'?'Preparing target mean F₀':data.preparation?.preparation_phase==='released'?'Conservative motion after release':'Running'} · ${format(t)} / ${config.duration} time units · step ${step.toLocaleString()}`;
   }
   queueRender();
  };
@@ -148,8 +168,9 @@ $('params-file').onchange=async e=>{
 };
 $('json').onclick=()=>download(`hpottsviz-${model}.json`,JSON.stringify({...run,samples,latest_probabilities:q?Array.from(q):null},null,2),'application/json');
 $('csv').onclick=()=>{
- const columns=['time',...Array.from({length:run.config.np},(_,i)=>`m${i+1}`),'energy_per_unit','F0_per_unit','potential_per_unit','kinetic_per_unit','active_mass_per_unit',...Array.from({length:run.config.np},(_,i)=>`theta_m${i+1}`),'normalization_error','min_probability','energy_error','acceptance_rate','dFextdt_per_unit'];
- const rows=samples.map(s=>[s.time,...s.overlaps,s.energy,s.f0,s.potential,s.kinetic,s.active,...Array.from({length:run.config.np},(_,i)=>s.theta[i]??''),s.diagnostic.normalization_error,s.diagnostic.min_probability,s.diagnostic.energy_error??'',s.diagnostic.acceptance??'',s.diagnostic.dissipation??''].join(','));
+ const preparationKeys=model==='conservative_f0'?['preparation_phase','f0_mean_100','f0_window_count','f0_target','f0_tolerance','f0_stable_steps','rescale_count','release_step','release_energy']:[];
+ const columns=['time',...Array.from({length:run.config.np},(_,i)=>`m${i+1}`),'energy_per_unit','F0_per_unit','potential_per_unit','kinetic_per_unit','active_mass_per_unit',...Array.from({length:run.config.np},(_,i)=>`theta_m${i+1}`),'normalization_error','min_probability','energy_error','acceptance_rate','dFextdt_per_unit',...preparationKeys];
+ const rows=samples.map(s=>[s.time,...s.overlaps,s.energy,s.f0,s.potential,s.kinetic,s.active,...Array.from({length:run.config.np},(_,i)=>s.theta[i]??''),s.diagnostic.normalization_error,s.diagnostic.min_probability,s.diagnostic.energy_error??'',s.diagnostic.acceptance??'',s.diagnostic.dissipation??'',...preparationKeys.map(key=>s.diagnostic[key]??'')].join(','));
  download(`hpottsviz-${model}.csv`,[columns.join(','),...rows].join('\n'),'text/csv');
 };
 $('overlaps').onpointermove=e=>{

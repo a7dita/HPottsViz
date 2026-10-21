@@ -62,6 +62,38 @@ Signed amplitudes continue through zero, preserving nonnegative normalized
 probabilities. Continuous H is conserved; finite-step energy error is reported
 without rescaling momenta to hide it.
 
+### Optional preparation at a target mean F₀
+
+In **Conservative F₀**, set **Prepare target mean F₀ → On**, then enter
+**Target mean F₀ per unit** (default **−0.11**) and **Target tolerance**
+(default **0.001**). Preparation is off by default. Targets and tolerance use
+F₀/N, matching the energy plot; they are not total network energy values.
+
+The controller waits for 100 completed integration steps, then uses a rolling
+mean of exactly the latest 100 post-step F₀/N values. This is independent of
+`save_every`; t=0 is not included. After each step it multiplies all activity
+momenta (equivalently velocities, for fixed mass) by **1.001** when the mean
+is below target, or divides by **1.001** when it is above target. Inside the
+tolerance band it leaves momenta unchanged. This uniform scaling preserves
+tangency and does not change probabilities at that step.
+
+Release occurs after **100 consecutive full-window means** lie within the
+tolerance band. Rescaling then switches off permanently, even if the rolling
+mean later moves away from target. The first possible release is step 199.
+The total simulation duration includes preparation. If the run ends first,
+the UI explicitly reports that the target did not stabilize; it does not claim
+a conservative observation phase occurred. Some targets may be unattainable.
+
+H deliberately changes during preparation. At release, the engine records the
+current H/N and uses it as the new energy-drift reference. The plots include
+the rolling mean and target; diagnostics and CSV/full JSON exports record the
+phase, rolling mean, rescaling count, release step and release energy. The exact
+release point is saved even if it falls between regular plot samples. Full-run
+time reversal is disabled with preparation because rescaling is not reversible.
+After release only H, rather than the mean F₀, is constrained to remain constant
+by the continuous dynamics. Old Conservative F₀ parameter exports still import
+with preparation off and the new target/tolerance defaults.
+
 ## Local development
 
 ```sh
