@@ -2,7 +2,7 @@
 
 Five interactive Potts memory models, in the white, purple and pastel-panel style
 of [PottsViz](https://pottsviz.vercel.app). Live overlapping-memory trajectories,
-energy diagnostics, memory heatmap, 250-unit state grid and threshold projections.
+energy diagnostics, memory heatmap, variable-size state grid and threshold projections.
 
 - Adaptive Potts: synchronous Euler with sigma-driven adaptation.
 - Equilibrium noise: the flat-simplex Gibbs sampler using two sphere coordinates
@@ -17,8 +17,9 @@ energy diagnostics, memory heatmap, 250-unit state grid and threshold projection
   hidden fields and all four hidden initialization modes.
 
 The deterministic gradient-descent reference is not a UI model. Every namelist
-parameter for the original four selected models is editable except network size, fixed
-at **250**. Equilibrium and conservative defaults match the thesis figure
+parameter for the original four selected models is editable. Network size is
+selectable as **250, 500 or 1,000 units** in every model; the default remains
+**250**. Equilibrium and conservative defaults match the thesis figure
 parameters (`equilibrium_structured_U0p1_T0p02.json` and `conservative_U0p4.json`).
 Hidden defaults match the screenshot-verified `fresh.csv` run recorded in the
 thesis as `hidden_transient_hpottsviz.json`: activity-scaled initialization,
@@ -43,6 +44,34 @@ and initialization choices. Imports are validated before applying any changes;
 parameter import/export is disabled during running and paused simulations.
 Full-run JSON files can also be imported to restore their parameters.
 Changing models clears the plot; each model retains its own parameter choices.
+
+## Comparing network sizes
+
+Every model has a **Network size** selector under **Network**: **250 (1×)**,
+**500 (2×)** or **1,000 (4×)**. Network construction, sparse-memory populations,
+Hebbian normalization, fields, overlaps, energy per unit, kinetic initialization,
+noise updates, hidden/adaptive fields and all integration loops use the chosen N.
+The state grid includes every unit and adapts its layout. JSON parameters and
+full-run exports retain the size; CSV exports include a `network_size` column.
+Old parameter files without `n` import as N=250, and the original 250-unit
+Fortran reference tests continue to pass.
+
+To test a finite-size effect at fixed nominal memory load and connectivity,
+compare **(N,p) = (250,25), (500,50), (1000,100)**. This keeps p/N, and hence
+p/(Nc) at fixed c, constant. The UI shows nominal load p/(Nc), and changing N
+does not silently change p or c. Keeping p=25 instead tests a different path,
+where load decreases as N grows. Memories and connectivity are regenerated at
+each N; a common seed does not make networks of different sizes nested. Compare
+several seeds and keep the other intensive parameters, initial K/N, target
+F₀/N, timestep and duration matched when appropriate. Discrete memory sparsity
+still uses floor(Na), as in the original implementation.
+
+At fixed c and S, coupling storage and per-step work scale approximately as N²,
+so 2× and 4× the units require roughly 4× and 16× the coupling work. Very dense
+high-S combinations that exceed a 256 MiB weight-array limit are rejected before
+allocation (with an additional check on the actual generated graph). This limit
+does not affect the standard N=1000, S=7, c=0.2 configuration. Computation remains
+in the background worker; pause and stop are available between worker batches.
 
 ## Exploring the activity-only conservative model
 
@@ -142,12 +171,17 @@ and final state for completed runs. A stopped run retains its received samples.
    decreases at the expected second-order rate under timestep refinement.
 7. All parameters have controls; invalid cues, times, Hessians and cancelled
    initializations are rejected before running.
-8. The shared network seed constructs identical graphs across models.
+8. The shared network seed constructs identical graphs across models at the same N.
 9. Activity-only initial kinetic energy is exact and varying it rescales the same
    momentum directions. Tangent forces agree with an independent finite difference
    of F₀. Zero initial K still permits acceleration; probability constraints,
    timestep refinement and time reversal are tested through boundary crossings.
    Its worker reversal and parameter JSON import/export are also exercised.
+
+10. All five models evolve at all three network sizes. Tests cover the final
+    unit, size-dependent weight and energy normalization, larger-network noise
+    proposals, Hamiltonian reversal, F₀ preparation, complete 1000-unit worker
+    graph/state exports, legacy JSON imports and drawing every grid cell.
 
 The committed compressed JSON fixtures are outputs from the matching original HPotts binaries.
 Fortran seeds are not used as a claim of stochastic path agreement. Finite-step

@@ -1,4 +1,4 @@
-import { MODELS, PARAMS, SOURCE, N, validate } from './lib/models.js';
+import { MODELS, PARAMS, SOURCE, validate } from './lib/models.js';
 import { parameterDocument, parseParameters } from './lib/parameter-json.js';
 import { plot, heatmap, network, memoryColour, format } from './lib/plots.js';
 const $=id=>document.getElementById(id);
@@ -23,7 +23,7 @@ function controls(){
    const label=document.createElement('label');label.htmlFor=id;label.title=meta.help;label.innerHTML=`<span>${meta.label}</span><span class="symbol">${meta.symbol}</span>`;div.append(label);
    const help=document.createElement('p');help.className='help';help.id=id+'-help';help.textContent=meta.help;
    const row=document.createElement('div');row.className='input-row';let input,slider;
-   if(meta.options){input=document.createElement('select');meta.options.forEach((name,v)=>{const o=document.createElement('option');o.value=v;o.textContent=name;input.append(o);});input.value=config[key];}
+   if(meta.options){input=document.createElement('select');meta.options.forEach((name,v)=>{const o=document.createElement('option');o.value=meta.values?.[v]??v;o.textContent=name;input.append(o);});input.value=config[key];}
    else{
     input=document.createElement('input');input.type='number';input.min=meta.min;input.max=key==='cue'?config.np:meta.max;input.step=meta.step;input.value=config[key];
     if(!key.includes('seed')&&!meta.numberOnly){
@@ -62,7 +62,8 @@ function contextControls(){
   const input=$('param-'+k);input.disabled=!enabled;const slider=input.parentElement.querySelector('[type=range]');if(slider)slider.disabled=!enabled;
  }
 }
-function estimate(){const p=configs[model],steps=Math.round(p.duration/p.dt);$('run-estimate').textContent=Number.isFinite(steps)?`${steps.toLocaleString()} integration steps · sample every ${p.save_every} steps`:'';}
+function estimate(){const p=configs[model],steps=Math.round(p.duration/p.dt);$('run-estimate').textContent=Number.isFinite(steps)?`${p.n.toLocaleString()} units · ${steps.toLocaleString()} integration steps · sample every ${p.save_every} steps · load p/(Nc) = ${(p.np/(p.n*p.c)).toFixed(3)}`:'';networkLabels(run?.config.n??p.n);}
+function networkLabels(n){$('network-badge').textContent=`${n.toLocaleString()} units`;$('network').setAttribute('aria-label',`Current most probable category of each of the ${n} units`);}
 function selectModel(key,history=true){
  if(running)return;model=key;samples=[];q=null;run=null;reversing=false;document.title=`${MODELS[key].name} · HPottsViz`;
  for(const name of Object.keys(MODELS)){const selected=name===key;$('tab-'+name).setAttribute('aria-selected',selected);$('tab-'+name).tabIndex=selected?0:-1;}
@@ -95,7 +96,8 @@ function render(){
  if(model!=='minimal')plot($('energy'),samples,energies.map(([name,colour,key])=>({name,colour,value:s=>key==='f0_mean_100'||key==='f0_target'?s.diagnostic[key]:s[key],width:1.8})),{window});
  $('energy-legend').innerHTML=energies.map(([name,c])=>`<span><i style="background:${c}"></i>${name}</span>`).join('');
  if(model!=='equilibrium'&&model!=='conservative_f0')plot($('threshold'),samples,lines.map((l,m)=>({...l,value:s=>s.theta[m]})),{window});
- heatmap($('heatmap'),samples,np,window);network($('network'),q,(run?.config.ns??configs[model].ns)+1);
+ const displayN=run?.config.n??configs[model].n;networkLabels(displayN);
+ heatmap($('heatmap'),samples,np,window);network($('network'),q,(run?.config.ns??configs[model].ns)+1,displayN);
  if(!$('legend').children.length||$('legend').children.length!==np)$('legend').innerHTML=Array.from({length:np},(_,i)=>`<span><i style="background:${memoryColour(i)}"></i>${i+1}</span>`).join('');
  $('sample-count').textContent=samples.length?`${samples.length.toLocaleString()} saved samples`:'No trajectory yet';
  if(last){const best=last.overlaps.indexOf(Math.max(...last.overlaps));$('metric-time').textContent=format(last.time);$('metric-memory').textContent=best+1;$('metric-overlap').textContent=last.overlaps[best].toFixed(3);$('metric-energy').textContent=model==='minimal'?last.active.toFixed(3):last.energy.toFixed(5);
@@ -118,7 +120,7 @@ function render(){
 $('start').onclick=()=>{
  const config={...configs[model]};try{validate(model,config);}catch(e){$('error').hidden=false;$('error').textContent=e.message;return;}
  worker?.terminate();samples=[];q=null;paused=false;reversing=false;started=performance.now();
- run={version:1,model,config,network_size:N,source_commit:SOURCE,engine:'HPottsViz JavaScript / Mulberry32',started_at:new Date().toISOString()};
+ run={version:1,model,config,network_size:config.n,source_commit:SOURCE,engine:'HPottsViz JavaScript / Mulberry32',started_at:new Date().toISOString()};
  $('error').hidden=true;$('status').textContent='Preparing memories and connectivity…';$('progress').value=0;setRunning(true);render();
  worker=new Worker(new URL('./worker.js',import.meta.url),{type:'module'});
  worker.onmessage=({data})=>{
@@ -169,8 +171,8 @@ $('params-file').onchange=async e=>{
 $('json').onclick=()=>download(`hpottsviz-${model}.json`,JSON.stringify({...run,samples,latest_probabilities:q?Array.from(q):null},null,2),'application/json');
 $('csv').onclick=()=>{
  const preparationKeys=model==='conservative_f0'?['preparation_phase','f0_mean_100','f0_window_count','f0_target','f0_tolerance','f0_stable_steps','rescale_count','release_step','release_energy']:[];
- const columns=['time',...Array.from({length:run.config.np},(_,i)=>`m${i+1}`),'energy_per_unit','F0_per_unit','potential_per_unit','kinetic_per_unit','active_mass_per_unit',...Array.from({length:run.config.np},(_,i)=>`theta_m${i+1}`),'normalization_error','min_probability','energy_error','acceptance_rate','dFextdt_per_unit',...preparationKeys];
- const rows=samples.map(s=>[s.time,...s.overlaps,s.energy,s.f0,s.potential,s.kinetic,s.active,...Array.from({length:run.config.np},(_,i)=>s.theta[i]??''),s.diagnostic.normalization_error,s.diagnostic.min_probability,s.diagnostic.energy_error??'',s.diagnostic.acceptance??'',s.diagnostic.dissipation??'',...preparationKeys.map(key=>s.diagnostic[key]??'')].join(','));
+ const columns=['time',...Array.from({length:run.config.np},(_,i)=>`m${i+1}`),'energy_per_unit','F0_per_unit','potential_per_unit','kinetic_per_unit','active_mass_per_unit',...Array.from({length:run.config.np},(_,i)=>`theta_m${i+1}`),'normalization_error','min_probability','energy_error','acceptance_rate','dFextdt_per_unit',...preparationKeys,'network_size'];
+ const rows=samples.map(s=>[s.time,...s.overlaps,s.energy,s.f0,s.potential,s.kinetic,s.active,...Array.from({length:run.config.np},(_,i)=>s.theta[i]??''),s.diagnostic.normalization_error,s.diagnostic.min_probability,s.diagnostic.energy_error??'',s.diagnostic.acceptance??'',s.diagnostic.dissipation??'',...preparationKeys.map(key=>s.diagnostic[key]??''),run.config.n].join(','));
  download(`hpottsviz-${model}.csv`,[columns.join(','),...rows].join('\n'),'text/csv');
 };
 $('overlaps').onpointermove=e=>{

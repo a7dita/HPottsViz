@@ -30,3 +30,19 @@ test('F0 preparation worker saves the release point even between sparse plot sam
   });
  });}finally{await worker.terminate();}
 });
+
+for(const model of Object.keys(MODELS))test(`${model}: worker exports the full 1000-unit graph and state`,{timeout:10000},async()=>{
+ const worker=new Worker(new URL('data:text/javascript,'+encodeURIComponent(adapter)),{type:'module'});
+ try{await new Promise((resolve,reject)=>{
+  let ready;
+  worker.on('error',reject);worker.on('message',data=>{
+   if(data.type==='loaded')worker.postMessage({type:'start',model,config:{...MODELS[model].defaults,n:1000,ns:2,np:4,c:.01,duration:.02,dt:.01,save_every:1}});
+   if(data.type==='error')reject(Error(data.message));
+   if(data.type==='ready'){
+    ready=data;assert.equal(data.network_size,1000);assert.equal(data.initial.q.length,3000);assert.ok(data.patterns.every(p=>p.length===1000));
+    assert.ok(data.edges.some(([i,j])=>i===999||j===999));assert.ok(data.edges.every(([i,j])=>i<1000&&j<1000));
+   }
+   if(data.type==='complete'){assert.ok(ready);assert.equal(data.state.q.length,3000);assert.ok(data.samples.at(-1).diagnostic.normalization_error<1e-12);resolve();}
+  });
+ });}finally{await worker.terminate();}
+});
